@@ -1,0 +1,96 @@
+void automation.Send_SAPIN_Zoho_Sign_Document(String contactId)
+{
+info "========== SAPIN ZOHO SIGN STARTED ==========";
+info "Contact ID: " + contactId;
+// Zoho Sign template details
+templateId = 424895000000089001;
+actionId = "424895000000089061";
+connectionName = "zoho_sign";
+contactIdText = ifnull(contactId,"").toString().trim();
+if(contactIdText == "")
+{
+	info "FAILED: Contact ID was not received from the CRM workflow.";
+}
+else
+{
+	contactDetails = zoho.crm.getRecordById("Contacts",contactIdText.toLong());
+	if(contactDetails == null || contactDetails.get("id") == null)
+	{
+		info "FAILED: CRM Contact could not be found.";
+	}
+	else
+	{
+		clientEmail = ifnull(contactDetails.get("Email"),"").toString().trim();
+		firstName = ifnull(contactDetails.get("First_Name"),"").toString().trim();
+		lastName = ifnull(contactDetails.get("Last_Name"),"").toString().trim();
+		clientName = (firstName + " " + lastName).trim();
+		if(clientName == "")
+		{
+			clientName = "Client";
+		}
+		if(clientEmail == "")
+		{
+			info "FAILED: The CRM Contact does not have an email address.";
+		}
+		else
+		{
+			// Confirm the template through the Zoho Sign connection
+			templateResponse = zoho.sign.getTemplateById(templateId,"zoho_sign");
+			info "Template response:";
+			info templateResponse;
+			// Signer details
+			recipientMap = Map();
+			recipientMap.put("recipient_name",clientName);
+			recipientMap.put("recipient_email",clientEmail);
+			recipientMap.put("action_id",actionId);
+			recipientMap.put("action_type","SIGN");
+			recipientMap.put("signing_order",1);
+			recipientMap.put("role","");
+			recipientMap.put("verify_recipient",false);
+			recipientMap.put("private_notes","Welcome to SAPIN. Please review and sign your document.");
+			recipientList = List();
+			recipientList.add(recipientMap);
+			// Empty field data required by the template payload
+			fieldTextData = Map();
+			fieldBooleanData = Map();
+			fieldDateData = Map();
+			fieldRadioData = Map();
+			fieldCheckboxData = Map();
+			fieldData = Map();
+			fieldData.put("field_text_data",fieldTextData);
+			fieldData.put("field_boolean_data",fieldBooleanData);
+			fieldData.put("field_date_data",fieldDateData);
+			fieldData.put("field_radio_data",fieldRadioData);
+			fieldData.put("field_checkboxgroup_data",fieldCheckboxData);
+			templateMap = Map();
+			templateMap.put("request_name","Power of Attorney for Credit Report - " + clientName);
+			templateMap.put("field_data",fieldData);
+			templateMap.put("actions",recipientList);
+			templateMap.put("notes","Welcome to SAPIN. Please review and sign your document.");
+			submitMap = Map();
+			submitMap.put("templates",templateMap);
+			parameters = Map();
+			parameters.put("data",submitMap);
+			// Send the Zoho Sign email immediately
+			parameters.put("is_quicksend",true);
+			info "Sending Zoho Sign document to: " + clientEmail;
+			info "Using connection: " + connectionName;
+			// Connection is added as the third parameter
+			signResponse = zoho.sign.createUsingTemplate(templateId,parameters,"zoho_sign");
+			info "Zoho Sign response:";
+			info signResponse;
+			responseCode = ifnull(signResponse.get("code"),"-1").toString();
+			if(responseCode == "0")
+			{
+				info "SUCCESS: Zoho Sign email sent to " + clientEmail;
+			}
+			else
+			{
+				errorMessage = ifnull(signResponse.get("message"),"Unknown Zoho Sign error").toString();
+				info "FAILED: " + errorMessage;
+			}
+		}
+	}
+}
+info "========== SAPIN ZOHO SIGN FINISHED ==========";
+}
